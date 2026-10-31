@@ -17,7 +17,9 @@ Then open <http://localhost:8000/AutumnVillage.html>. The page loads Three.js an
 its controls from jsDelivr, so an internet connection is also needed.
 
 Drag to orbit, scroll to zoom, use **Window lights** to toggle the house lights,
-and use **Reset view** to return to the starting camera position.
+and use **Reset view** to return to the starting camera position. Two little
+cars cruise back and forth along the path, with rolling wheels and wobbling
+rubber-duck passengers.
 
 ## OpenSCAD models
 

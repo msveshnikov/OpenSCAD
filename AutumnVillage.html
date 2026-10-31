@@ -175,12 +175,14 @@
       let houseGeometry;
       let pumpkinGeometry;
       let treeGeometry;
+      let carGeometry;
       try {
         const modelLoader = new THREE.STLLoader();
-        [houseGeometry, pumpkinGeometry, treeGeometry] = await Promise.all([
+        [houseGeometry, pumpkinGeometry, treeGeometry, carGeometry] = await Promise.all([
           modelLoader.loadAsync("CozyHouse.stl"),
           modelLoader.loadAsync("NicePumpkin.stl"),
-          modelLoader.loadAsync("Tree.stl")
+          modelLoader.loadAsync("Tree.stl"),
+          modelLoader.loadAsync("VillageCar.stl")
         ]);
       } catch (error) {
         loading.textContent = "Village models could not be loaded. Serve this folder over HTTP.";
@@ -298,6 +300,66 @@
         house.rotation.y = index % 2 === 0 ? 0.12 : Math.PI * 0.9;
         world.add(house);
       });
+
+      function createCar(bodyColor, x, z, rotation = 0) {
+        const car = new THREE.Group();
+        car.position.set(x, 0, z);
+        car.rotation.y = rotation;
+        car.scale.setScalar(0.58);
+
+        const modelAxes = new THREE.Group();
+        modelAxes.rotation.x = -Math.PI / 2;
+        car.add(modelAxes);
+        addMesh(modelAxes, carGeometry, material(bodyColor), [0, 0, 0]);
+
+        const windows = material(0x263e49, 0.4, {
+          metalness: 0.15,
+          roughness: 0.35
+        });
+        const tires = material(0x242322, 0.95);
+        const hubs = material(0xc5b99e, 0.45, { metalness: 0.6 });
+        const headlights = material(0xffe6a3, 0.35, {
+          emissive: 0x805a20,
+          emissiveIntensity: 0.7
+        });
+        const taillights = material(0x9e3024, 0.45, {
+          emissive: 0x52120b,
+          emissiveIntensity: 0.35
+        });
+
+        for (const side of [-1, 1]) {
+          for (const y of [-12.5, 12.5]) {
+            addMesh(
+              modelAxes,
+              new THREE.CylinderGeometry(4.4, 4.4, 2.8, 16),
+              tires,
+              [side * 10.8, y, 4.2],
+              [0, 0, Math.PI / 2]
+            );
+            addMesh(
+              modelAxes,
+              new THREE.CylinderGeometry(2.2, 2.2, 0.3, 12),
+              hubs,
+              [side * 12.25, y, 4.2],
+              [0, 0, Math.PI / 2]
+            );
+          }
+
+          [-2.5, 3].forEach(y => {
+            addMesh(modelAxes, new THREE.BoxGeometry(0.35, 4.5, 3.8), windows, [side * 8.05, y, 11.1]);
+          });
+          addMesh(modelAxes, new THREE.BoxGeometry(0.5, 1, 4.4), material(bodyColor), [side * 8.2, 0.3, 11.4]);
+          addMesh(modelAxes, new THREE.BoxGeometry(2.6, 0.5, 1.4), headlights, [side * 7.3, -19, 5]);
+          addMesh(modelAxes, new THREE.BoxGeometry(2.4, 0.5, 1.1), taillights, [side * 7.2, 19, 5]);
+        }
+
+        addMesh(modelAxes, new THREE.BoxGeometry(10, 0.35, 3.8), windows, [0, -5.8, 11.3]);
+        addMesh(modelAxes, new THREE.BoxGeometry(9, 0.35, 3.4), windows, [0, 5.8, 11.4]);
+        world.add(car);
+      }
+
+      createCar(0xa84632, -1, 65, -0.24);
+      createCar(0x3e6474, 2, 40, -0.24);
 
       function createPumpkin(scale, color = 0xed7824) {
         const pumpkin = new THREE.Mesh(pumpkinGeometry, material(color));

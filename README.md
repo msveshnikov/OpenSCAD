@@ -2,8 +2,8 @@
 
 Autumn Hollow is a small interactive Three.js village scene built with the
 OpenSCAD models in this folder. The houses, evergreen trees, and pumpkins in the
-scene are loaded from STL exports of `CozyHouse.scad`, `Tree.scad`, and
-`NicePumpkin.scad`, rather than approximated with browser-created geometry.
+scene, along with cars modeled in `VillageCar.scad`, are loaded from STL
+exports rather than approximated with browser-created geometry.
 
 ## View the village
 
@@ -24,6 +24,7 @@ and use **Reset view** to return to the starting camera position.
 - `CozyHouse.scad` — gable-roof house; exported to `CozyHouse.stl`
 - `Tree.scad` — evergreen; exported to `Tree.stl`
 - `NicePumpkin.scad` — carved pumpkin; exported to `NicePumpkin.stl`
+- `VillageCar.scad` — compact car; exported to `VillageCar.stl`
 
 The STL files are the runtime assets used by the village. If you edit a source
 model, regenerate its STL with OpenSCAD, for example:
@@ -32,4 +33,5 @@ model, regenerate its STL with OpenSCAD, for example:
 openscad --export-format binstl -o CozyHouse.stl CozyHouse.scad
 openscad --export-format binstl -o Tree.stl Tree.scad
 openscad --export-format binstl -o NicePumpkin.stl NicePumpkin.scad
+openscad --export-format binstl -o VillageCar.stl VillageCar.scad
 ```

@@ -136,8 +136,9 @@
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
   <script>
-    (() => {
+    (async () => {
       const canvas = document.querySelector("#scene");
       const loading = document.querySelector("#loading");
       const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -171,9 +172,24 @@
       warmLight.position.set(0, 35, 0);
       scene.add(warmLight);
 
+      let houseGeometry;
+      let pumpkinGeometry;
+      let treeGeometry;
+      try {
+        const modelLoader = new THREE.STLLoader();
+        [houseGeometry, pumpkinGeometry, treeGeometry] = await Promise.all([
+          modelLoader.loadAsync("CozyHouse.stl"),
+          modelLoader.loadAsync("NicePumpkin.stl"),
+          modelLoader.loadAsync("Tree.stl")
+        ]);
+      } catch (error) {
+        loading.textContent = "Village models could not be loaded. Serve this folder over HTTP.";
+        console.error("Unable to load the OpenSCAD village models.", error);
+        return;
+      }
+
       const world = new THREE.Group();
       scene.add(world);
-      const windowMaterials = [];
       const lanternLights = [];
       const animatedLeaves = [];
       const random = (() => {
@@ -235,31 +251,17 @@
       }
 
       function createPine(scale = 1, color = 0x28543c) {
-        const tree = new THREE.Group();
-        const bark = material(0x60432b);
-        const needles = material(color);
-        addMesh(tree, new THREE.CylinderGeometry(1.2, 1.8, 10, 8), bark, [0, 5, 0]);
-
-        for (let tier = 0; tier < 4; tier++) {
-          const radius = 8.5 * (1 - tier * 0.2);
-          const height = 10;
-          addMesh(
-            tree,
-            new THREE.ConeGeometry(radius, height, 9, 1),
-            needles,
-            [0, 10 + tier * 5.5, 0]
-          );
-        }
-
+        const tree = new THREE.Mesh(treeGeometry, material(color));
+        tree.rotation.x = -Math.PI / 2;
         tree.scale.setScalar(scale);
         return tree;
       }
 
       const treeSpots = [
-        [-57, -42, 0.9], [-47, -60, 1.12], [-68, -13, 0.88], [-53, 26, 1.08],
-        [-48, 57, 0.88], [-25, 67, 1.04], [26, 69, 0.94], [51, 57, 1.1],
-        [66, 27, 0.9], [59, -8, 1.12], [66, -42, 0.96], [42, -60, 1.12],
-        [18, -70, 0.86], [-22, -68, 0.98], [-72, 48, 0.82]
+        [-57, -42, 0.31], [-47, -60, 0.38], [-68, -13, 0.30], [-53, 26, 0.37],
+        [-48, 57, 0.30], [-25, 67, 0.35], [26, 69, 0.32], [51, 57, 0.37],
+        [66, 27, 0.31], [59, -8, 0.38], [66, -42, 0.33], [42, -60, 0.38],
+        [18, -70, 0.29], [-22, -68, 0.33], [-72, 48, 0.28]
       ];
       treeSpots.forEach(([x, z, scale], index) => {
         const pine = createPine(scale, index % 3 === 0 ? 0x315e3d : 0x28543c);
@@ -267,138 +269,54 @@
         world.add(pine);
       });
 
-      function createHouse(wallColor, roofColor, scale = 1) {
+      function createHouse(wallColor, scale = 1) {
         const house = new THREE.Group();
-        const walls = material(wallColor);
-        const roof = material(roofColor);
-        const wood = material(0x4d3025);
-        const foundation = material(0xb8a78d);
+        const model = new THREE.Mesh(houseGeometry, material(wallColor));
+        model.rotation.x = -Math.PI / 2;
+        house.add(model);
 
-        addMesh(house, new THREE.BoxGeometry(28, 2, 22), foundation, [0, 1, 0]);
-        addMesh(house, new THREE.BoxGeometry(25, 14, 19), walls, [0, 9, 0]);
-        const roofLength = Math.sqrt(13 * 13 + 9 * 9) + 2;
-        const roofAngle = Math.atan2(9, 13);
-        addMesh(house, new THREE.BoxGeometry(roofLength, 1.8, 23), roof, [-6.5, 17.5, 0], [0, 0, -roofAngle]);
-        addMesh(house, new THREE.BoxGeometry(roofLength, 1.8, 23), roof, [6.5, 17.5, 0], [0, 0, roofAngle]);
-
-        const door = addMesh(house, new THREE.BoxGeometry(5, 9, 0.8), wood, [-1, 5.5, 9.8]);
-        door.material = material(0x633b27);
-        addMesh(house, new THREE.SphereGeometry(0.35, 8, 8), material(0xf5bd5a, 0.4, { emissive: 0x8c4a0b }), [0.7, 5.5, 10.3]);
-
-        const windowMat = new THREE.MeshStandardMaterial({
-          color: 0xffc56f,
-          emissive: 0xffa43a,
-          emissiveIntensity: 1.2,
-          roughness: 0.35
-        });
-        windowMaterials.push(windowMat);
-        [-8, 7].forEach(x => {
-          addMesh(house, new THREE.BoxGeometry(4.5, 4.5, 0.7), windowMat, [x, 10, 9.9]);
-          addMesh(house, new THREE.BoxGeometry(5.3, 0.7, 0.9), wood, [x, 10, 10.3]);
-          addMesh(house, new THREE.BoxGeometry(0.7, 5.3, 0.9), wood, [x, 10, 10.3]);
-          addMesh(house, new THREE.BoxGeometry(0.5, 4.5, 1), wood, [x, 10, 10.4]);
-          addMesh(house, new THREE.BoxGeometry(4.5, 0.5, 1), wood, [x, 10, 10.4]);
+        [-24, 24].forEach(x => {
           const lamp = new THREE.PointLight(0xffa442, 9, 28, 2);
-          lamp.position.set(x, 10, 14);
+          lamp.position.set(x, 23, 33);
           lamp.intensity = 3.5;
           house.add(lamp);
           lanternLights.push(lamp);
         });
 
-        addMesh(house, new THREE.BoxGeometry(3.2, 8, 3.5), material(0x8b4b36), [8, 21, -4]);
-        addMesh(house, new THREE.BoxGeometry(4, 0.7, 4.3), material(0x633d30), [8, 25, -4]);
-        addMesh(house, new THREE.BoxGeometry(12, 1, 5), material(0x77563c), [0, 2.3, 14]);
         house.scale.setScalar(scale);
         return house;
       }
 
       [
-        [-27, -14, 1.05, 0xe6b77f, 0x713c32],
-        [19, -31, 0.92, 0xd7c18f, 0x3f5360],
-        [-20, 32, 0.78, 0xc98e69, 0x75463b],
-        [29, 22, 0.74, 0xd8c9a5, 0x556846]
-      ].forEach(([x, z, scale, walls, roof], index) => {
-        const house = createHouse(walls, roof, scale);
+        [-27, -14, 0.36, 0xe6b77f],
+        [19, -31, 0.34, 0xd7c18f],
+        [-20, 32, 0.31, 0xc98e69],
+        [29, 22, 0.29, 0xd8c9a5]
+      ].forEach(([x, z, scale, walls], index) => {
+        const house = createHouse(walls, scale);
         house.position.set(x, 0, z);
         house.rotation.y = index % 2 === 0 ? 0.12 : Math.PI * 0.9;
         world.add(house);
       });
 
-      function createPumpkin(radius, color = 0xed7824, carved = true) {
-        const pumpkin = new THREE.Group();
-        const positions = [];
-        const indices = [];
-        const rings = 20;
-        const segments = 48;
-        for (let ring = 0; ring <= rings; ring++) {
-          const v = 0.06 + (Math.PI - 0.12) * ring / rings;
-          for (let segment = 0; segment <= segments; segment++) {
-            const angle = 2 * Math.PI * segment / segments;
-            const rib = 1 + 0.09 * Math.cos(9 * angle);
-            positions.push(
-              radius * Math.sin(v) * rib * Math.cos(angle),
-              radius * 0.78 * Math.cos(v),
-              radius * Math.sin(v) * rib * Math.sin(angle)
-            );
-          }
-        }
-        for (let ring = 0; ring < rings; ring++) {
-          for (let segment = 0; segment < segments; segment++) {
-            const a = ring * (segments + 1) + segment;
-            const b = a + 1;
-            const c = a + segments + 2;
-            const d = a + segments + 1;
-            indices.push(a, b, d, b, c, d);
-          }
-        }
-        const bodyGeometry = new THREE.BufferGeometry();
-        bodyGeometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-        bodyGeometry.setIndex(indices);
-        bodyGeometry.computeVertexNormals();
-        addMesh(pumpkin, bodyGeometry, material(color, 0.68, { side: THREE.DoubleSide }), [0, radius * 0.78, 0]);
-        addMesh(pumpkin, new THREE.CylinderGeometry(1.1, 1.8, 4.5, 8), material(0x55713a), [0, radius * 1.55, 0], [0, 0, -0.18]);
-        addMesh(pumpkin, new THREE.SphereGeometry(0.6, 8, 6), material(0x89a34c), [1.4, radius * 1.42, 0]);
-
-        if (carved) {
-          const faceMat = material(0x452219, 0.95);
-          const eyeGeometry = new THREE.ConeGeometry(1.45, 2.8, 3);
-          [-1, 1].forEach(side => {
-            const eye = addMesh(pumpkin, eyeGeometry, faceMat, [side * radius * 0.28, radius * 0.88, radius * 0.83]);
-            eye.rotation.z = Math.PI;
-            eye.rotation.y = side * 0.12;
-          });
-          const mouthShape = new THREE.Shape();
-          mouthShape.moveTo(-radius * 0.4, 0);
-          mouthShape.quadraticCurveTo(0, -radius * 0.32, radius * 0.4, 0);
-          mouthShape.lineTo(radius * 0.32, -radius * 0.2);
-          mouthShape.lineTo(radius * 0.2, -radius * 0.13);
-          mouthShape.lineTo(radius * 0.08, -radius * 0.24);
-          mouthShape.lineTo(-radius * 0.04, -radius * 0.14);
-          mouthShape.lineTo(-radius * 0.17, -radius * 0.25);
-          mouthShape.lineTo(-radius * 0.29, -radius * 0.13);
-          mouthShape.closePath();
-          const mouth = addMesh(
-            pumpkin,
-            new THREE.ShapeGeometry(mouthShape),
-            faceMat,
-            [0, radius * 0.59, radius * 0.88]
-          );
-          mouth.material.side = THREE.DoubleSide;
-        }
+      function createPumpkin(scale, color = 0xed7824) {
+        const pumpkin = new THREE.Mesh(pumpkinGeometry, material(color));
+        pumpkin.rotation.x = -Math.PI / 2;
+        pumpkin.scale.setScalar(scale);
         return pumpkin;
       }
 
       [
-        [-12, 17, 4.8, 0xe87922, true],
-        [7, 7, 3.8, 0xf19a2d, true],
-        [24, -4, 4.1, 0xe76d20, true],
-        [-33, 7, 3.3, 0xb96831, false],
-        [8, -49, 3.1, 0xe17a25, false],
-        [-4, 40, 2.8, 0xef9b30, false],
-        [40, 5, 2.7, 0xb96c35, false]
-      ].forEach(([x, z, size, color, carved], index) => {
-        const pumpkin = createPumpkin(size, color, carved);
-        pumpkin.position.set(x, 0.35, z);
+        [-12, 17, 0.12, 0xe87922],
+        [7, 7, 0.105, 0xf19a2d],
+        [24, -4, 0.11, 0xe76d20],
+        [-33, 7, 0.095, 0xb96831],
+        [8, -49, 0.09, 0xe17a25],
+        [-4, 40, 0.085, 0xef9b30],
+        [40, 5, 0.08, 0xb96c35]
+      ].forEach(([x, z, scale, color], index) => {
+        const pumpkin = createPumpkin(scale, color);
+        pumpkin.position.set(x, 4, z);
         pumpkin.rotation.y = index * 0.8;
         world.add(pumpkin);
       });
@@ -430,10 +348,6 @@
         const isOn = event.currentTarget.getAttribute("aria-pressed") !== "true";
         event.currentTarget.setAttribute("aria-pressed", String(isOn));
         event.currentTarget.textContent = `Window lights: ${isOn ? "on" : "off"}`;
-        windowMaterials.forEach(mat => {
-          mat.emissiveIntensity = isOn ? 1.2 : 0;
-          mat.color.setHex(isOn ? 0xffc56f : 0x51606b);
-        });
         lanternLights.forEach(light => { light.visible = isOn; });
       });
 

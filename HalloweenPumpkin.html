@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Jack-o'-lantern | Live 3D</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #100d18;
+      color: #fff3da;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse at 50% 58%, #352018 0%, #17111e 42%, #100d18 78%);
+    }
+
+    #scene {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .title {
+      position: fixed;
+      top: clamp(20px, 5vh, 52px);
+      left: clamp(20px, 5vw, 64px);
+      pointer-events: none;
+      text-shadow: 0 2px 18px #100d18;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #ffb13b;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .24em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(30px, 5vw, 54px);
+      font-weight: 500;
+      letter-spacing: -.035em;
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      color: #c9b9b1;
+      font-size: 14px;
+    }
+
+    .controls {
+      position: fixed;
+      right: clamp(18px, 4vw, 48px);
+      bottom: clamp(20px, 5vh, 48px);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 18px;
+      border: 1px solid #ffffff20;
+      border-radius: 16px;
+      background: #17121dcc;
+      box-shadow: 0 12px 40px #0005;
+      backdrop-filter: blur(14px);
+    }
+
+    button {
+      min-width: 90px;
+      padding: 10px 14px;
+      border: 1px solid #ffad4d70;
+      border-radius: 10px;
+      background: #ffad4d16;
+      color: #ffe3b5;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    button:hover { background: #ffad4d30; }
+    button:focus-visible, input:focus-visible { outline: 2px solid #ffc15e; outline-offset: 3px; }
+
+    .slider-wrap {
+      display: grid;
+      gap: 6px;
+      min-width: 132px;
+    }
+
+    label {
+      display: flex;
+      justify-content: space-between;
+      color: #d7c7bd;
+      font-size: 12px;
+    }
+
+    output { color: #ffc15e; }
+
+    input[type="range"] {
+      width: 132px;
+      accent-color: #ff9a29;
+      cursor: pointer;
+    }
+
+    .hint {
+      position: fixed;
+      bottom: 28px;
+      left: clamp(20px, 5vw, 64px);
+      color: #c4b4ad;
+      font-size: 12px;
+      pointer-events: none;
+    }
+
+    .loading {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: #ffd28a;
+      font-size: 14px;
+      letter-spacing: .08em;
+      pointer-events: none;
+    }
+
+    @media (max-width: 560px) {
+      .controls { left: 16px; right: 16px; justify-content: space-between; }
+      .hint { display: none; }
+      .subtitle { max-width: 250px; line-height: 1.5; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="scene" aria-label="Interactive animated 3D jack-o'-lantern"></canvas>
+  <header class="title">
+    <p class="eyebrow">A little Halloween magic</p>
+    <h1>Fireside Jack</h1>
+    <p class="subtitle">A glowing jack-o'-lantern with dancing 3D flames.</p>
+  </header>
+  <div class="controls">
+    <button id="toggle" type="button">Pause fire</button>
+    <div class="slider-wrap">
+      <label for="brightness">Fire glow <output id="brightness-value">75%</output></label>
+      <input id="brightness" type="range" min="0" max="100" value="75">
+    </div>
+  </div>
+  <p class="hint">Drag to orbit · Scroll to zoom</p>
+  <div class="loading" id="loading">Lighting the pumpkin…</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script>
+    (() => {
+      const canvas = document.querySelector("#scene");
+      const loading = document.querySelector("#loading");
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 0.72;
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 500);
+      camera.position.set(0, 8, 310);
+      camera.lookAt(0, 8, 0);
+
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 8, 0);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.minDistance = 130;
+      controls.maxDistance = 340;
+      controls.maxPolarAngle = Math.PI * 0.88;
+
+      scene.add(new THREE.HemisphereLight(0xffd8a0, 0x251323, 0.35));
+      const keyLight = new THREE.DirectionalLight(0xffd2a0, 0.6);
+      keyLight.position.set(-80, -110, 150);
+      scene.add(keyLight);
+      const rimLight = new THREE.PointLight(0xff6017, 8, 190, 2);
+      rimLight.position.set(50, 45, 28);
+      scene.add(rimLight);
+
+      const pumpkin = new THREE.Group();
+      scene.add(pumpkin);
+      pumpkin.rotation.x = -Math.PI / 2;
+
+      const bodyWidth = 82;
+      const bodyHeight = 62;
+      const ribCount = 10;
+      const ribDepth = 0.055;
+      const ringCount = 120;
+      const segmentCount = 480;
+      const facePolygons = [
+        [[-25, 16], [-7, 12], [-15, 1]],
+        [[25, 16], [7, 12], [15, 1]],
+        [[-5, 2], [5, 2], [0, -7]],
+        [
+          [-24, -10], [-18, -14], [-13, -10], [-8, -16], [-3, -12],
+          [2, -17], [7, -12], [12, -16], [17, -11], [23, -12],
+          [21, -21], [15, -25], [9, -22], [4, -26], [-2, -22],
+          [-8, -25], [-15, -21], [-21, -22]
+        ]
+      ];
+
+      function insidePolygon(x, z, polygon) {
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+          const [xi, zi] = polygon[i];
+          const [xj, zj] = polygon[j];
+          const crosses = (zi > z) !== (zj > z)
+            && x < (xj - xi) * (z - zi) / (zj - zi) + xi;
+          if (crosses) inside = !inside;
+        }
+        return inside;
+      }
+
+      function inFaceOpening(x, z) {
+        return facePolygons.some(polygon => insidePolygon(x, z, polygon));
+      }
+
+      function pumpkinRadius(z, angle) {
+        const profile = Math.max(0, 1 - Math.pow(Math.abs(z), 2.4));
+        const rib = 1 + ribDepth * Math.cos(ribCount * angle)
+          * (0.38 + 0.62 * Math.sqrt(Math.max(0, 1 - z * z)));
+        return bodyWidth / 2 * Math.pow(profile, 0.44) * rib;
+      }
+
+      function buildShell(scale, inside) {
+        const positions = [];
+        const indices = [];
+        for (let ring = 0; ring <= ringCount; ring++) {
+          const zNorm = -0.985 + 1.97 * ring / ringCount;
+          const z = zNorm * bodyHeight / 2
+            - Math.sign(zNorm) * 1.8 * Math.exp(-Math.pow((1 - Math.abs(zNorm)) / 0.14, 2));
+          for (let segment = 0; segment <= segmentCount; segment++) {
+            const angle = 2 * Math.PI * segment / segmentCount;
+            const radius = pumpkinRadius(zNorm, angle) * scale;
+            positions.push(
+              radius * Math.cos(angle),
+              radius * Math.sin(angle),
+              z * (inside ? 0.88 : 1)
+            );
+          }
+        }
+
+        const stride = segmentCount + 1;
+        for (let ring = 0; ring < ringCount; ring++) {
+          for (let segment = 0; segment < segmentCount; segment++) {
+            const a = ring * stride + segment;
+            const b = a + 1;
+            const c = a + stride + 1;
+            const d = a + stride;
+            const tri1 = [a, b, c];
+            const tri2 = [a, c, d];
+
+            for (const tri of [tri1, tri2]) {
+              const cx = (positions[tri[0] * 3] + positions[tri[1] * 3] + positions[tri[2] * 3]) / 3;
+              const cy = (positions[tri[0] * 3 + 1] + positions[tri[1] * 3 + 1] + positions[tri[2] * 3 + 1]) / 3;
+              const cz = (positions[tri[0] * 3 + 2] + positions[tri[1] * 3 + 2] + positions[tri[2] * 3 + 2]) / 3;
+              const opening = cy < 0
+                && inFaceOpening(cx / scale, cz / (inside ? 0.88 : 1));
+              if (!opening) {
+                if (inside) indices.push(tri[0], tri[2], tri[1]);
+                else indices.push(tri[0], tri[1], tri[2]);
+              }
+            }
+          }
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+        return geometry;
+      }
+
+      const outerMaterial = new THREE.MeshStandardMaterial({
+        color: 0xe94b08,
+        roughness: 0.62,
+        metalness: 0.02,
+        side: THREE.DoubleSide
+      });
+      const innerMaterial = new THREE.MeshStandardMaterial({
+        color: 0x71200e,
+        roughness: 0.72,
+        side: THREE.DoubleSide
+      });
+      pumpkin.add(new THREE.Mesh(buildShell(1, false), outerMaterial));
+      pumpkin.add(new THREE.Mesh(buildShell(0.82, true), innerMaterial));
+
+      const stemMaterial = new THREE.MeshStandardMaterial({ color: 0x49301c, roughness: 0.86 });
+      const stemBase = new THREE.Mesh(new THREE.CylinderGeometry(5.5, 6.8, 12, 12), stemMaterial);
+      stemBase.position.set(0, 0, 32);
+      stemBase.rotation.x = Math.PI / 2;
+      pumpkin.add(stemBase);
+      const stemTip = new THREE.Mesh(new THREE.CylinderGeometry(3, 5.2, 13, 12), stemMaterial);
+      stemTip.position.set(2, 0, 43);
+      stemTip.rotation.x = Math.PI / 2;
+      stemTip.rotation.y = -0.18;
+      pumpkin.add(stemTip);
+
+      const leafShape = new THREE.Shape();
+      leafShape.moveTo(0, 0);
+      leafShape.quadraticCurveTo(9, 8, 21, 0);
+      leafShape.quadraticCurveTo(10, -8, 0, 0);
+      const leafGeometry = new THREE.ExtrudeGeometry(leafShape, {
+        depth: 1.2,
+        bevelEnabled: true,
+        bevelSegments: 2,
+        steps: 1,
+        bevelSize: 0.35,
+        bevelThickness: 0.3
+      });
+      const leaf = new THREE.Mesh(leafGeometry, new THREE.MeshStandardMaterial({
+        color: 0x42751b,
+        roughness: 0.65,
+        side: THREE.DoubleSide
+      }));
+      leaf.position.set(3, -1, 42);
+      leaf.rotation.z = 0.18;
+      pumpkin.add(leaf);
+
+      const flameGroup = new THREE.Group();
+      pumpkin.add(flameGroup);
+      const flameMaterial = (color, emissive, intensity) => new THREE.MeshStandardMaterial({
+        color,
+        emissive,
+        emissiveIntensity: intensity,
+        roughness: 0.3,
+        metalness: 0,
+        side: THREE.DoubleSide
+      });
+      const flameMaterials = [
+        flameMaterial(0xb72d05, 0xff2b00, 0.65),
+        flameMaterial(0xff650b, 0xff4b00, 0.95),
+        flameMaterial(0xffbd25, 0xff9a05, 1.25),
+        flameMaterial(0xffed91, 0xffd04a, 1.5)
+      ];
+
+      function createFlameGeometry(height, width, depthRatio = 0.5) {
+        const rings = 20;
+        const sides = 18;
+        const positions = [];
+        const indices = [];
+        for (let ring = 0; ring <= rings; ring++) {
+          const t = ring / rings;
+          const radius = width * (0.34 + 0.66 * Math.sin(Math.PI * t))
+            * Math.pow(1 - t, 0.65) + 0.035;
+          const lean = 1.8 * Math.sin(Math.PI * t);
+          for (let side = 0; side <= sides; side++) {
+            const angle = 2 * Math.PI * side / sides;
+            positions.push(
+              lean + radius * Math.cos(angle),
+              radius * depthRatio * Math.sin(angle),
+              height * t
+            );
+          }
+        }
+        for (let ring = 0; ring < rings; ring++) {
+          for (let side = 0; side < sides; side++) {
+            const a = ring * (sides + 1) + side;
+            const b = a + sides + 1;
+            indices.push(a, a + 1, b, a + 1, b + 1, b);
+          }
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+        return geometry;
+      }
+
+      const flameSpecs = [
+        [-12, -22, 18, 5.5, 0], [-4, -22, 24, 6.4, 0],
+        [5, -22, 31, 7.0, 0], [13, -22, 21, 5.4, 0],
+        [-8, -25, 22, 4.7, 1], [1, -25, 27, 5.2, 1],
+        [10, -25, 18, 4.3, 1],
+        [-5, -27, 18, 3.8, 2], [3, -27, 21, 4.1, 2],
+        [8, -27, 15, 3.1, 2],
+        [0, -29, 17, 2.7, 3], [5, -29, 13, 2.4, 3]
+      ];
+      const flames = flameSpecs.map(([x, y, height, width, layer], index) => {
+        const mesh = new THREE.Mesh(
+          createFlameGeometry(height, width, layer === 0 ? 0.46 : 0.38),
+          flameMaterials[layer]
+        );
+        mesh.position.set(x, y, -20 + (layer === 3 ? 1 : 0));
+        mesh.userData = {
+          x, y, index,
+          phase: index * 1.71,
+          baseHeight: height
+        };
+        flameGroup.add(mesh);
+        return mesh;
+      });
+
+      const fireLight = new THREE.PointLight(0xff5a0a, 12, 100, 2);
+      fireLight.position.set(0, -20, -1);
+      pumpkin.add(fireLight);
+      const fireFill = new THREE.PointLight(0xffa51b, 4, 55, 2);
+      fireFill.position.set(0, -34, -8);
+      pumpkin.add(fireFill);
+
+      const brightness = document.querySelector("#brightness");
+      const brightnessValue = document.querySelector("#brightness-value");
+      const toggle = document.querySelector("#toggle");
+      let glow = Number(brightness.value) / 100;
+      let playing = true;
+      brightness.addEventListener("input", () => {
+        glow = Number(brightness.value) / 100;
+        brightnessValue.value = `${brightness.value}%`;
+      });
+      toggle.addEventListener("click", () => {
+        playing = !playing;
+        toggle.textContent = playing ? "Pause fire" : "Resume fire";
+      });
+
+      const clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        const elapsed = clock.getElapsedTime();
+        controls.update();
+
+        if (playing) {
+          flames.forEach(flame => {
+            const { x, y, phase, baseHeight } = flame.userData;
+            const wave = elapsed * 5 + phase;
+            flame.position.x = x + Math.sin(wave) * 1.2;
+            flame.scale.z = 0.88 + 0.18 * (0.5 + 0.5 * Math.sin(wave * 1.3));
+            flame.rotation.y = Math.sin(wave * 0.7) * 0.12;
+            flame.position.y = y + Math.sin(wave * 0.8) * 0.45;
+            flame.scale.x = 0.92 + 0.12 * Math.sin(wave * 1.1);
+            flame.userData.baseHeight = baseHeight;
+          });
+          fireLight.intensity = glow * (10 + 3 * Math.sin(elapsed * 12) + 1.5 * Math.sin(elapsed * 19));
+          fireFill.intensity = glow * (3 + Math.sin(elapsed * 10 + 1));
+        } else {
+          fireLight.intensity = glow * 10;
+          fireFill.intensity = glow * 3;
+        }
+
+        flameMaterials.forEach((material, index) => {
+          material.emissiveIntensity = glow * (0.6 + index * 0.3);
+        });
+        renderer.render(scene, camera);
+      }
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      });
+
+      loading.remove();
+      animate();
+    })();
+  </script>
+</body>
+</html>

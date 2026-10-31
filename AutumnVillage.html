@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111a24">
+  <link rel="icon" href="data:,">
+  <title>Autumn Hollow | 3D Village</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: #fff3df;
+      background: #111a24;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      background: radial-gradient(ellipse at 50% 70%, #55402e 0%, #202632 50%, #111a24 100%);
+    }
+
+    #scene {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .title {
+      position: fixed;
+      top: clamp(20px, 5vh, 52px);
+      left: clamp(20px, 5vw, 64px);
+      pointer-events: none;
+      text-shadow: 0 2px 22px #111a24;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #ffc269;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .24em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font: 500 clamp(32px, 5vw, 56px)/1 Georgia, "Times New Roman", serif;
+      letter-spacing: -.035em;
+    }
+
+    .subtitle {
+      max-width: 370px;
+      margin: 12px 0 0;
+      color: #d3c5b8;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .controls {
+      position: fixed;
+      right: clamp(18px, 4vw, 48px);
+      bottom: clamp(20px, 5vh, 48px);
+      display: flex;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid #ffffff24;
+      border-radius: 16px;
+      background: #131923dc;
+      box-shadow: 0 12px 40px #0005;
+      backdrop-filter: blur(14px);
+    }
+
+    button {
+      padding: 10px 14px;
+      border: 1px solid #ffc26970;
+      border-radius: 10px;
+      background: #ffc26914;
+      color: #ffe3b5;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    button:hover { background: #ffc26930; }
+    button:focus-visible { outline: 2px solid #ffc269; outline-offset: 3px; }
+
+    .hint {
+      position: fixed;
+      bottom: 30px;
+      left: clamp(20px, 5vw, 64px);
+      color: #d3c5b8;
+      font-size: 12px;
+      pointer-events: none;
+    }
+
+    .loading {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: #ffd28a;
+      font-size: 14px;
+      letter-spacing: .08em;
+      pointer-events: none;
+      transition: opacity .4s ease;
+    }
+
+    .loading.hidden { opacity: 0; }
+
+    @media (max-width: 560px) {
+      .subtitle { max-width: 260px; }
+      .controls { right: 16px; bottom: 16px; }
+      .hint { bottom: 82px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="scene" aria-label="Interactive 3D autumn village with houses, pumpkins, and evergreen trees"></canvas>
+  <header class="title">
+    <p class="eyebrow">A tiny world at dusk</p>
+    <h1>Autumn Hollow</h1>
+    <p class="subtitle">A cozy little village tucked between the pines. Drag to wander around.</p>
+  </header>
+  <div class="controls">
+    <button id="lights" type="button" aria-pressed="true">Window lights: on</button>
+    <button id="reset" type="button">Reset view</button>
+  </div>
+  <p class="hint">Drag to orbit · Scroll to zoom</p>
+  <div class="loading" id="loading">Settling into the village…</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script>
+    (() => {
+      const canvas = document.querySelector("#scene");
+      const loading = document.querySelector("#loading");
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 0.72;
+
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.Fog(0x202632, 115, 270);
+      const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 500);
+      const defaultCamera = new THREE.Vector3(100, 112, 190);
+      const target = new THREE.Vector3(0, 16, 0);
+      camera.position.copy(defaultCamera);
+      camera.lookAt(target);
+
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.target.copy(target);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.055;
+      controls.minDistance = 70;
+      controls.maxDistance = 260;
+      controls.maxPolarAngle = Math.PI * 0.48;
+
+      scene.add(new THREE.HemisphereLight(0xffdfbd, 0x30402b, 0.72));
+      const moonlight = new THREE.DirectionalLight(0xb9d2ff, 1.05);
+      moonlight.position.set(-55, 100, 45);
+      scene.add(moonlight);
+      const warmLight = new THREE.PointLight(0xffa64a, 32, 130, 2);
+      warmLight.position.set(0, 35, 0);
+      scene.add(warmLight);
+
+      const world = new THREE.Group();
+      scene.add(world);
+      const windowMaterials = [];
+      const lanternLights = [];
+      const animatedLeaves = [];
+      const random = (() => {
+        let seed = 12461;
+        return () => {
+          seed = (seed * 1664525 + 1013904223) % 4294967296;
+          return seed / 4294967296;
+        };
+      })();
+
+      function material(color, roughness = 0.85, extra = {}) {
+        return new THREE.MeshStandardMaterial({ color, roughness, ...extra });
+      }
+
+      function addMesh(parent, geometry, mat, position, rotation) {
+        const mesh = new THREE.Mesh(geometry, mat);
+        mesh.position.set(position[0], position[1], position[2]);
+        if (rotation) mesh.rotation.set(rotation[0], rotation[1], rotation[2]);
+        parent.add(mesh);
+        return mesh;
+      }
+
+      const grassMat = material(0x536d3c);
+      const ground = addMesh(
+        world,
+        new THREE.CylinderGeometry(82, 88, 8, 96),
+        grassMat,
+        [0, -4, 0]
+      );
+      ground.receiveShadow = true;
+
+      const pathCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-3, 0.18, 74),
+        new THREE.Vector3(3, 0.18, 51),
+        new THREE.Vector3(-8, 0.18, 33),
+        new THREE.Vector3(-1, 0.18, 12),
+        new THREE.Vector3(8, 0.18, -10),
+        new THREE.Vector3(3, 0.18, -34),
+        new THREE.Vector3(12, 0.18, -72)
+      ]);
+      const path = addMesh(
+        world,
+        new THREE.TubeGeometry(pathCurve, 80, 5.2, 8, false),
+        material(0x9b805b),
+        [0, 0, 0]
+      );
+      path.scale.y = 0.035;
+
+      const stoneMat = material(0xc8b99a);
+      for (let i = 0; i < 24; i++) {
+        const point = pathCurve.getPoint((i + 0.5) / 24);
+        const stone = addMesh(
+          world,
+          new THREE.CylinderGeometry(1.7 + random(), 2.1, 0.7, 7),
+          stoneMat,
+          [point.x + (random() - 0.5) * 5, 0.45, point.z]
+        );
+        stone.rotation.y = random() * Math.PI;
+      }
+
+      function createPine(scale = 1, color = 0x28543c) {
+        const tree = new THREE.Group();
+        const bark = material(0x60432b);
+        const needles = material(color);
+        addMesh(tree, new THREE.CylinderGeometry(1.2, 1.8, 10, 8), bark, [0, 5, 0]);
+
+        for (let tier = 0; tier < 4; tier++) {
+          const radius = 8.5 * (1 - tier * 0.2);
+          const height = 10;
+          addMesh(
+            tree,
+            new THREE.ConeGeometry(radius, height, 9, 1),
+            needles,
+            [0, 10 + tier * 5.5, 0]
+          );
+        }
+
+        tree.scale.setScalar(scale);
+        return tree;
+      }
+
+      const treeSpots = [
+        [-57, -42, 0.9], [-47, -60, 1.12], [-68, -13, 0.88], [-53, 26, 1.08],
+        [-48, 57, 0.88], [-25, 67, 1.04], [26, 69, 0.94], [51, 57, 1.1],
+        [66, 27, 0.9], [59, -8, 1.12], [66, -42, 0.96], [42, -60, 1.12],
+        [18, -70, 0.86], [-22, -68, 0.98], [-72, 48, 0.82]
+      ];
+      treeSpots.forEach(([x, z, scale], index) => {
+        const pine = createPine(scale, index % 3 === 0 ? 0x315e3d : 0x28543c);
+        pine.position.set(x, 0, z);
+        world.add(pine);
+      });
+
+      function createHouse(wallColor, roofColor, scale = 1) {
+        const house = new THREE.Group();
+        const walls = material(wallColor);
+        const roof = material(roofColor);
+        const wood = material(0x4d3025);
+        const foundation = material(0xb8a78d);
+
+        addMesh(house, new THREE.BoxGeometry(28, 2, 22), foundation, [0, 1, 0]);
+        addMesh(house, new THREE.BoxGeometry(25, 14, 19), walls, [0, 9, 0]);
+        const roofLength = Math.sqrt(13 * 13 + 9 * 9) + 2;
+        const roofAngle = Math.atan2(9, 13);
+        addMesh(house, new THREE.BoxGeometry(roofLength, 1.8, 23), roof, [-6.5, 17.5, 0], [0, 0, -roofAngle]);
+        addMesh(house, new THREE.BoxGeometry(roofLength, 1.8, 23), roof, [6.5, 17.5, 0], [0, 0, roofAngle]);
+
+        const door = addMesh(house, new THREE.BoxGeometry(5, 9, 0.8), wood, [-1, 5.5, 9.8]);
+        door.material = material(0x633b27);
+        addMesh(house, new THREE.SphereGeometry(0.35, 8, 8), material(0xf5bd5a, 0.4, { emissive: 0x8c4a0b }), [0.7, 5.5, 10.3]);
+
+        const windowMat = new THREE.MeshStandardMaterial({
+          color: 0xffc56f,
+          emissive: 0xffa43a,
+          emissiveIntensity: 1.2,
+          roughness: 0.35
+        });
+        windowMaterials.push(windowMat);
+        [-8, 7].forEach(x => {
+          addMesh(house, new THREE.BoxGeometry(4.5, 4.5, 0.7), windowMat, [x, 10, 9.9]);
+          addMesh(house, new THREE.BoxGeometry(5.3, 0.7, 0.9), wood, [x, 10, 10.3]);
+          addMesh(house, new THREE.BoxGeometry(0.7, 5.3, 0.9), wood, [x, 10, 10.3]);
+          addMesh(house, new THREE.BoxGeometry(0.5, 4.5, 1), wood, [x, 10, 10.4]);
+          addMesh(house, new THREE.BoxGeometry(4.5, 0.5, 1), wood, [x, 10, 10.4]);
+          const lamp = new THREE.PointLight(0xffa442, 9, 28, 2);
+          lamp.position.set(x, 10, 14);
+          lamp.intensity = 3.5;
+          house.add(lamp);
+          lanternLights.push(lamp);
+        });
+
+        addMesh(house, new THREE.BoxGeometry(3.2, 8, 3.5), material(0x8b4b36), [8, 21, -4]);
+        addMesh(house, new THREE.BoxGeometry(4, 0.7, 4.3), material(0x633d30), [8, 25, -4]);
+        addMesh(house, new THREE.BoxGeometry(12, 1, 5), material(0x77563c), [0, 2.3, 14]);
+        house.scale.setScalar(scale);
+        return house;
+      }
+
+      [
+        [-27, -14, 1.05, 0xe6b77f, 0x713c32],
+        [19, -31, 0.92, 0xd7c18f, 0x3f5360],
+        [-20, 32, 0.78, 0xc98e69, 0x75463b],
+        [29, 22, 0.74, 0xd8c9a5, 0x556846]
+      ].forEach(([x, z, scale, walls, roof], index) => {
+        const house = createHouse(walls, roof, scale);
+        house.position.set(x, 0, z);
+        house.rotation.y = index % 2 === 0 ? 0.12 : Math.PI * 0.9;
+        world.add(house);
+      });
+
+      function createPumpkin(radius, color = 0xed7824, carved = true) {
+        const pumpkin = new THREE.Group();
+        const positions = [];
+        const indices = [];
+        const rings = 20;
+        const segments = 48;
+        for (let ring = 0; ring <= rings; ring++) {
+          const v = 0.06 + (Math.PI - 0.12) * ring / rings;
+          for (let segment = 0; segment <= segments; segment++) {
+            const angle = 2 * Math.PI * segment / segments;
+            const rib = 1 + 0.09 * Math.cos(9 * angle);
+            positions.push(
+              radius * Math.sin(v) * rib * Math.cos(angle),
+              radius * 0.78 * Math.cos(v),
+              radius * Math.sin(v) * rib * Math.sin(angle)
+            );
+          }
+        }
+        for (let ring = 0; ring < rings; ring++) {
+          for (let segment = 0; segment < segments; segment++) {
+            const a = ring * (segments + 1) + segment;
+            const b = a + 1;
+            const c = a + segments + 2;
+            const d = a + segments + 1;
+            indices.push(a, b, d, b, c, d);
+          }
+        }
+        const bodyGeometry = new THREE.BufferGeometry();
+        bodyGeometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+        bodyGeometry.setIndex(indices);
+        bodyGeometry.computeVertexNormals();
+        addMesh(pumpkin, bodyGeometry, material(color, 0.68, { side: THREE.DoubleSide }), [0, radius * 0.78, 0]);
+        addMesh(pumpkin, new THREE.CylinderGeometry(1.1, 1.8, 4.5, 8), material(0x55713a), [0, radius * 1.55, 0], [0, 0, -0.18]);
+        addMesh(pumpkin, new THREE.SphereGeometry(0.6, 8, 6), material(0x89a34c), [1.4, radius * 1.42, 0]);
+
+        if (carved) {
+          const faceMat = material(0x452219, 0.95);
+          const eyeGeometry = new THREE.ConeGeometry(1.45, 2.8, 3);
+          [-1, 1].forEach(side => {
+            const eye = addMesh(pumpkin, eyeGeometry, faceMat, [side * radius * 0.28, radius * 0.88, radius * 0.83]);
+            eye.rotation.z = Math.PI;
+            eye.rotation.y = side * 0.12;
+          });
+          const mouthShape = new THREE.Shape();
+          mouthShape.moveTo(-radius * 0.4, 0);
+          mouthShape.quadraticCurveTo(0, -radius * 0.32, radius * 0.4, 0);
+          mouthShape.lineTo(radius * 0.32, -radius * 0.2);
+          mouthShape.lineTo(radius * 0.2, -radius * 0.13);
+          mouthShape.lineTo(radius * 0.08, -radius * 0.24);
+          mouthShape.lineTo(-radius * 0.04, -radius * 0.14);
+          mouthShape.lineTo(-radius * 0.17, -radius * 0.25);
+          mouthShape.lineTo(-radius * 0.29, -radius * 0.13);
+          mouthShape.closePath();
+          const mouth = addMesh(
+            pumpkin,
+            new THREE.ShapeGeometry(mouthShape),
+            faceMat,
+            [0, radius * 0.59, radius * 0.88]
+          );
+          mouth.material.side = THREE.DoubleSide;
+        }
+        return pumpkin;
+      }
+
+      [
+        [-12, 17, 4.8, 0xe87922, true],
+        [7, 7, 3.8, 0xf19a2d, true],
+        [24, -4, 4.1, 0xe76d20, true],
+        [-33, 7, 3.3, 0xb96831, false],
+        [8, -49, 3.1, 0xe17a25, false],
+        [-4, 40, 2.8, 0xef9b30, false],
+        [40, 5, 2.7, 0xb96c35, false]
+      ].forEach(([x, z, size, color, carved], index) => {
+        const pumpkin = createPumpkin(size, color, carved);
+        pumpkin.position.set(x, 0.35, z);
+        pumpkin.rotation.y = index * 0.8;
+        world.add(pumpkin);
+      });
+
+      const pebbleMat = material(0xcbb477, 0.55, { emissive: 0x68411c, emissiveIntensity: 0.45 });
+      for (let i = 0; i < 12; i++) {
+        const lantern = new THREE.Group();
+        addMesh(lantern, new THREE.SphereGeometry(0.28, 8, 8), pebbleMat, [0, 0, 0]);
+        lantern.position.set(-9 + i * 1.65, 0.9, 40 + Math.sin(i * 0.38) * 3);
+        world.add(lantern);
+      }
+
+      const sky = new THREE.Group();
+      scene.add(sky);
+      const starMat = new THREE.MeshBasicMaterial({ color: 0xffe6ad });
+      for (let i = 0; i < 90; i++) {
+        const star = new THREE.Mesh(new THREE.SphereGeometry(0.25 + random() * 0.5, 6, 6), starMat);
+        star.position.set((random() - 0.5) * 300, 58 + random() * 100, -100 - random() * 100);
+        sky.add(star);
+      }
+      const moon = new THREE.Mesh(
+        new THREE.SphereGeometry(8, 24, 24),
+        new THREE.MeshBasicMaterial({ color: 0xffe3af })
+      );
+      moon.position.set(-78, 85, -100);
+      sky.add(moon);
+
+      document.querySelector("#lights").addEventListener("click", event => {
+        const isOn = event.currentTarget.getAttribute("aria-pressed") !== "true";
+        event.currentTarget.setAttribute("aria-pressed", String(isOn));
+        event.currentTarget.textContent = `Window lights: ${isOn ? "on" : "off"}`;
+        windowMaterials.forEach(mat => {
+          mat.emissiveIntensity = isOn ? 1.2 : 0;
+          mat.color.setHex(isOn ? 0xffc56f : 0x51606b);
+        });
+        lanternLights.forEach(light => { light.visible = isOn; });
+      });
+
+      document.querySelector("#reset").addEventListener("click", () => {
+        camera.position.copy(defaultCamera);
+        controls.target.copy(target);
+        controls.update();
+      });
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      const clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        const time = clock.getElapsedTime();
+        warmLight.intensity = 32 + Math.sin(time * 2.3) * 2;
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+      loading.classList.add("hidden");
+      window.setTimeout(() => loading.remove(), 500);
+    })();
+  </script>
+</body>
+</html>

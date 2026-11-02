@@ -4,6 +4,7 @@ $fn = 32;
 body_width = 22;
 wheelbase = 25;
 wheel_radius = 5.2;
+wheel_arch_depth = 4.4;
 
 module lower_body() {
     difference() {
@@ -14,10 +15,11 @@ module lower_body() {
                 cube([body_width - 2, 12, 8], center = true);
         }
 
-        for (y = [-wheelbase / 2, wheelbase / 2])
-            translate([0, y, 4.2])
-                rotate([0, 90, 0])
-                    cylinder(h = body_width + 4, r = wheel_radius, center = true);
+        for (side = [-1, 1])
+            for (y = [-wheelbase / 2, wheelbase / 2])
+                translate([side * (body_width / 2 - wheel_arch_depth / 2), y, 4.2])
+                    rotate([0, 90, 0])
+                        cylinder(h = wheel_arch_depth, r = wheel_radius, center = true);
     }
 }
 
